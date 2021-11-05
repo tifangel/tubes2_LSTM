@@ -7,6 +7,7 @@ import sys
 import numpy as np
 import pandas as pd
 from Layer import Layer
+from activation import sigmoid
 from dense import Dense
 from Neuron import Neuron
 
@@ -176,6 +177,29 @@ class LSTMClassifier:
 
     def feedFoward(self):
         print("Forward")
+
+        n_features = 6
+        n_unit_lstm = 1
+        n_time_step = 1
+
+        wf = np.random.random_sample((n_features,))
+        uf = np.random.random_sample((n_unit_lstm, ))
+        bf = np.random.random_sample((n_unit_lstm))
+        
+        prev_h = [0]
+        for xt in self.inputValue:
+            ft = self.forget_gate(wf, xt, uf, prev_h, bf)
+
+    '''
+        Fungsi menghitung forget gate ke-t
+        Wf      : array of weight 
+        x       : array of input x(t)
+        Uf      : array of weight
+        prev_h  : output h(t-1)
+        bf      : array of bias
+    '''
+    def forget_gate(self, Wf, x, Uf, prev_h, bf):
+        return sigmoid(np.dot(Wf, x) + np.dot(Uf, prev_h) + bf)
 
 LSTM = LSTMClassifier()
 
