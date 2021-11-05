@@ -53,7 +53,6 @@ class LSTMClassifier:
                 # iterate through columns
                 for j in range(len(result[0])):
                     result[j][i] = arr[i][j]
-        print(result)
         
         return result
     
@@ -121,7 +120,6 @@ class LSTMClassifier:
         htValue = [0]
 
         for x in self.inputValue:
-            print(x)
             self.layers[0].setNeurons(x)
             for i in range(1, self.n_layer - 1):
                 # Forget Gate
