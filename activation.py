@@ -33,6 +33,13 @@ def softmax(arr):
         p.append(j / c)
     return p
 
+def tanh(arr):
+    res = []
+    for x in arr:
+        x = math.tanh(x)
+        res.append(x)
+    return res
+
 def get(identifier = None):
     if identifier is None:
         return linear

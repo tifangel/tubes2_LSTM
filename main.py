@@ -7,7 +7,7 @@ import sys
 import numpy as np
 import pandas as pd
 from Layer import Layer
-from activation import sigmoid
+from activation import sigmoid, tanh
 from dense import Dense
 from Neuron import Neuron
 
@@ -96,99 +96,55 @@ class LSTMClassifier:
         self.n_layer = int(numbers[0])
         # Jumlah neuron per layer
         neurons = self.convertInt(re.split(' ',numbers[1]))
-        # Fungsi aktivasi per layer
-        functions = self.convertInt(re.split(' ',numbers[2]))
 
-        n_neurons = 0
-        for n in neurons[:-1]:
-            n_neurons += n
-
-        neuronArr = []
         layers = []
-        weights = []
-
-        # Bobot Layer
-        counter = 1
-        index = 0
-        for i in range (3, n_neurons + 3):
-            # Bobot per node diassign ke neuron
-            weightNeuron = self.convertFloat(re.split(' ',numbers[i]))
-            # Buat neuron baru
-            newNeuron = Neuron(weightNeuron)
-            neuronArr.append(newNeuron)
-
-            # Bobot untuk Layer
-            weights.append(weightNeuron)
-
-            if (counter == neurons[index]):
-                weights = self.transposeMatrix(weights)
-                # Buat layer baru
-                isHiddenLayer = False
-                if index > 0 :
-                    isHiddenLayer = True
-                newLayer = Layer(index,neuronArr,functions[index], weights, isHiddenLayer)
-                # Append layer ke Classifier
-                layers.append(newLayer)
-            
-                print(index)
-                print(weights)
-
-                # Empty weights arr
-                weights = []
-                # Empty neuron arr
-                neuronArr = []
-                # Counter jumlah neuron per layer di ulang
-                counter = 1
-                # Index layer
-                index += 1
-            else :
-                counter += 1
-
-        # Backward Link Weight
-        index = 1
-        counter = 1
-        weights = []
-        for i in range(n_neurons + 3, len(numbers)):
-            weight = self.convertFloat(re.split(' ',numbers[i]))
-            weights.append(weight)
-
-            if counter == len(layers[index].getHTValue()) :
-                layers[index].setBackwardLinkWeight(weights)
-                
-                print(index)
-                print(weights)
-                print(layers[index].getHTValue())
-
-                hTValue = []
-                counter = 1
-                index += 1
-            else: 
-                counter += 1
-
-        # Layer output
-        # Neuron di layer output
-        for i in range(neurons[-1]):
-            newNeuron = Neuron([])
-            neuronArr.append(newNeuron)
-        # Layer pada output
-        newLayer = Layer(index, neuronArr, functions[-1], [])
-        layers.append(newLayer)
+        for i in range(self.n_layer):
+            isHiddenLayer = False
+            if i > 0 or i < self.n_layer - 1:
+                isHiddenLayer = True
+            n_unit = neurons[i]
+            n_unit_next = neurons[i]
+            if i < self.n_layer - 1 :
+                n_unit_next = neurons[i+1]
+            newLayer = Layer(i,n_unit, n_unit_next, isHiddenLayer)
+            layers.append(newLayer)
         self.layers = layers
 
     def feedFoward(self):
         print("Forward")
 
-        n_features = 6
-        n_unit_lstm = 1
-        n_time_step = 1
+        ctValue = [0]
+        htValue = [0]
 
-        wf = np.random.random_sample((n_features,))
-        uf = np.random.random_sample((n_unit_lstm, ))
-        bf = np.random.random_sample((n_unit_lstm))
+        for x in self.inputValue:
+            self.layers[0].setNeurons(x)
+            for i in range(1, self.n_layer - 2):
+                # Forget Gate
+                ft = self.forget_gate(self.layers[i].getBackwardWeightsForgetGate(), self.layers[i-1].getNeurons(), self.layers[i].getWeightsForgetGate(), htValue, self.layers[i-1].getBias())
+                # Input Gate
+                it = self.forget_gate(self.layers[i].getBackwardWeightsInputGate(), self.layers[i-1].getNeurons(), self.layers[i].getWeightsInputGate(), htValue, self.layers[i-1].getBias())
+                sigmaValue = np.dot(self.layers[i].getBackwardWeightsCellGate(), htValue) + np.dot(self.layers[i].getWeightsInputGate(), self.layers[i-1].getNeurons()) + self.layers[i-1].getBias()
+                c_t = tanh(sigmaValue)
+                # Cell Gate
+                ct = np.dot(ft, ctValue) + np.dot(it, c_t)
+                # Output Gate
+                ot = self.forget_gate(self.layers[i].getBackwardWeightsOutputGate(), self.layers[i-1].getNeurons(), self.layers[i].getWeightsOutputGate(), htValue, self.layers[i-1].getBias())
+                ht = np.dot(ot, tanh(ct))
+
+                ctValue = ct
+                htValue = ht
+
+        # n_features = 6
+        # n_unit_lstm = 1
+        # n_time_step = 1
+
+        # wf = np.random.random_sample((n_features,))
+        # uf = np.random.random_sample((n_unit_lstm, ))
+        # bf = np.random.random_sample((n_unit_lstm))
         
-        prev_h = [0]
-        for xt in self.inputValue:
-            ft = self.forget_gate(wf, xt, uf, prev_h, bf)
+        # prev_h = [0]
+        # for xt in self.inputValue:
+        #     ft = self.forget_gate(wf, xt, uf, prev_h, bf)
 
     '''
         Fungsi menghitung forget gate ke-t
@@ -199,7 +155,7 @@ class LSTMClassifier:
         bf      : array of bias
     '''
     def forget_gate(self, Wf, x, Uf, prev_h, bf):
-        return sigmoid(np.dot(Wf, x) + np.dot(Uf, prev_h) + bf)
+        return sigmoid(np.dot(Wf, prev_h) + np.dot(Uf, x) + bf)
 
 LSTM = LSTMClassifier()
 
