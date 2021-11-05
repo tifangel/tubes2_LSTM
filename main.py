@@ -42,14 +42,18 @@ class LSTMClassifier:
     def transposeMatrix(self, arr):
         result = []
 
-        for i in range(len(arr[0])):
-            result.append([0 for j in range(len(arr))])
-
-        # iterate through rows
-        for i in range(len(arr)):
-            # iterate through columns
-            for j in range(len(arr[0])):
-                result[j][i] = arr[i][j]
+        if np.isscalar(arr[0]):
+            for j in range(len(arr)):
+                result.append([arr[j]])
+        else:
+            for i in range(len(arr[0])):
+                result.append([0 for j in range(len(arr))])
+            # iterate through rows
+            for i in range(len(result)):
+                # iterate through columns
+                for j in range(len(result[0])):
+                    result[j][i] = arr[i][j]
+        print(result)
         
         return result
     
@@ -100,7 +104,7 @@ class LSTMClassifier:
         layers = []
         for i in range(self.n_layer):
             isHiddenLayer = False
-            if i > 0 or i < self.n_layer - 1:
+            if i > 0 and i < self.n_layer - 1:
                 isHiddenLayer = True
             n_unit = neurons[i]
             n_unit_next = neurons[i]
@@ -117,34 +121,37 @@ class LSTMClassifier:
         htValue = [0]
 
         for x in self.inputValue:
+            print(x)
             self.layers[0].setNeurons(x)
-            for i in range(1, self.n_layer - 2):
+            for i in range(1, self.n_layer - 1):
                 # Forget Gate
-                ft = self.forget_gate(self.layers[i].getBackwardWeightsForgetGate(), self.layers[i-1].getNeurons(), self.layers[i].getWeightsForgetGate(), htValue, self.layers[i-1].getBias())
+                ft = self.forget_gate(self.layers[i-1].getWeightsForgetGate(), self.layers[i-1].getNeurons(), self.layers[i].getBackwardWeightsForgetGate(), htValue, self.layers[i-1].getBias())
+                # print("Forget Gate ", ft)
                 # Input Gate
-                it = self.forget_gate(self.layers[i].getBackwardWeightsInputGate(), self.layers[i-1].getNeurons(), self.layers[i].getWeightsInputGate(), htValue, self.layers[i-1].getBias())
-                sigmaValue = np.dot(self.layers[i].getBackwardWeightsCellGate(), htValue) + np.dot(self.layers[i].getWeightsInputGate(), self.layers[i-1].getNeurons()) + self.layers[i-1].getBias()
+                it = self.forget_gate(self.layers[i-1].getWeightsInputGate(), self.layers[i-1].getNeurons(), self.layers[i].getBackwardWeightsInputGate(), htValue, self.layers[i-1].getBias())
+                # print("Input Gate ", it)
+                sigmaValue = np.dot(self.layers[i].getBackwardWeightsCellGate(), htValue) + np.dot(self.layers[i-1].getWeightsInputGate(), self.layers[i-1].getNeurons()) + self.layers[i-1].getBias()
+                # print("Nilai Sigma ", sigmaValue)
                 c_t = tanh(sigmaValue)
+                # print("Input Gate C_t ", c_t)
                 # Cell Gate
                 ct = np.dot(ft, ctValue) + np.dot(it, c_t)
+                # print("Cell Gate ", ct)
                 # Output Gate
-                ot = self.forget_gate(self.layers[i].getBackwardWeightsOutputGate(), self.layers[i-1].getNeurons(), self.layers[i].getWeightsOutputGate(), htValue, self.layers[i-1].getBias())
-                ht = np.dot(ot, tanh(ct))
+                ot = self.forget_gate(self.layers[i-1].getWeightsOutputGate(), self.layers[i-1].getNeurons(), self.layers[i].getBackwardWeightsOutputGate(), htValue, self.layers[i-1].getBias())
+                print("Output Gate ", ot)
+                ht = np.dot(ot, tanh([ct]))
+                print("Output Gate ht ", [ht])
+                print("Output Cell Gate ", [ct])
 
-                ctValue = ct
-                htValue = ht
+                ctValue = [ct]
+                htValue = [ht]
+                self.layers[i].setNeurons(ot)
 
-        # n_features = 6
-        # n_unit_lstm = 1
-        # n_time_step = 1
-
-        # wf = np.random.random_sample((n_features,))
-        # uf = np.random.random_sample((n_unit_lstm, ))
-        # bf = np.random.random_sample((n_unit_lstm))
-        
-        # prev_h = [0]
-        # for xt in self.inputValue:
-        #     ft = self.forget_gate(wf, xt, uf, prev_h, bf)
+            # Dense Layer
+            # denseLayer = Dense(1, 1)
+            # output = self.layers[self.n_layer_konvolusi + 2].compute_output(ot)
+            # print('OUTPUT : ', output)
 
     '''
         Fungsi menghitung forget gate ke-t
@@ -154,11 +161,29 @@ class LSTMClassifier:
         prev_h  : output h(t-1)
         bf      : array of bias
     '''
-    def forget_gate(self, Wf, x, Uf, prev_h, bf):
-        return sigmoid(np.dot(Wf, prev_h) + np.dot(Uf, x) + bf)
+    def forget_gate(self, Uf, x, Wf, prev_h, bf):
+        return sigmoid(np.dot(Uf, self.transposeMatrix(x)) + np.dot(Wf, prev_h) + bf)
+
+    def summary(self):
+        print("SUMMARY")
+        params = 0
+        for i in range(len(self.layers) - 1):
+            if(i == len(self.layers) - 2):
+                param = len(self.layers[i].getNeurons())
+            else:
+                param = (len(self.layers[i].getNeurons())) * (len(self.layers[i+1].getNeurons()) - 1)
+            print("==================================")
+            print("Layer (Type)    : dense_" + str(i) +" (Dense)")
+            print("Param           : " +str(param))
+            print("Output          : (None,"+ str(len(self.layers[i+1].getNeurons()))+")")
+            print("Weight          :")
+            params += param
+        print("==================================")
+        print("Total params   : " +str(params))
 
 LSTM = LSTMClassifier()
 
 LSTM.load("text.txt")
 LSTM.loadCSV('bitcoin_price_training.csv', 'bitcoin_price_test.csv')
 LSTM.feedFoward()
+LSTM.summary()
